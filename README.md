@@ -7,4 +7,4 @@ The agent's desing is based on
 
 # Controlling a simulation
 With a simulation running, you may *add* new *agents* by clicking **right**, where you want to have one and an *obstacle* by clicking **left**.
-If you want do *pause* or *unpause* the simulation, press **space**, and **r** to reset everything.
+If you want to *pause* or *unpause* the simulation, press **space**, and **r** to reset everything.
