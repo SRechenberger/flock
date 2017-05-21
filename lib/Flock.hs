@@ -241,11 +241,14 @@ scanP p a = scannedPositions a & both.mapped %~ scan' p (a^.agentSensor.sensorPo
   (front, back) = scannedPositions a
 
 -- | Scans the plane around an agent
-scan :: Behavior ([Maybe (Level, Angle, Info)], [Maybe (Level, Angle, Info)])
+scan :: Behavior [(Level, Angle, Info)]
 scan = do
   agent <- get
   plane <- ask
-  return $ scanP plane agent
+  return
+    $ catMaybes
+    $ uncurry (++)
+    $ scanP plane agent
 
 -- | Simulates the plane by one step according to a function,
 --   which defines the behavior of an agent in the plane.

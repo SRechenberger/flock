@@ -38,7 +38,7 @@ average as = sum as / toEnum (length as)
 
 behavior :: Behavior ()
 behavior = do
-  scn <- catMaybes . uncurry (++) <$> scan
+  scn <- scan
   case scn of
     [] -> do
       angle <- getRandomR (-pi/8,pi/8)
