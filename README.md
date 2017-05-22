@@ -10,7 +10,8 @@ The agent's desing is based on
 You can either use this as a library and add it to your projects dependencies (see [stack/faq.md](https://github.com/commercialhaskell/stack/blob/master/doc/faq.md)),
 or you can clone this directory and either reimplement the `behavior` function in [src/Main.hs](https://github.com/SRechenberger/flock/blob/master/src/Main.hs), or add a new source file, from which a new executable should be build; then build with 
 
-    stack build 
+    stack setup  # Installs proper GHC Version
+    stack build  # Installs needed libraries and builds the package
 
 and run with, e.g.
 
