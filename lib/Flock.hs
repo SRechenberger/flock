@@ -14,7 +14,7 @@ module Flock
   -- ** Constructor
   , mkAgent
   -- ** Control functions
-  , move, scan, turn, turnTowards
+  , move, scan, turn, turnTowards, neighbours, nearObstacles
   -- ** Lenses
   , agentPosition, agentRadius, agentDirection, agentSpeed
   , agentSensor, agentFlocking, agentAtDest
@@ -249,6 +249,18 @@ scan = do
     $ catMaybes
     $ uncurry (++)
     $ scanP plane agent
+
+neighbours :: Behavior [Point]
+neighbours = do
+  as <- _planeAgents <$> ask
+  return $
+    map _agentPosition as
+    
+nearObstacles :: Behavior [Point]
+nearObstacles = do
+  os <- _planeObstacles <$> ask
+  return $
+    map _obstPositions os
 
 -- | Simulates the plane by one step according to a function,
 --   which defines the behavior of an agent in the plane.
