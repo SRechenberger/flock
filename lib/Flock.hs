@@ -91,6 +91,9 @@ data Plane = Plane
 
 type Behavior a = ReaderT Plane (StateT Agent (Rand StdGen)) a
 
+dist :: Point -> Point -> Float
+dist (x,y) (x',y') = sqrt ((x'-x)^2 + (y'-y)^2)
+
 runBehavior :: Behavior a -> StdGen -> Plane -> Agent -> (a,Agent,StdGen)
 runBehavior action gen plane agent = (a,agent',gen')
   where
@@ -250,17 +253,17 @@ scan = do
     $ uncurry (++)
     $ scanP plane agent
 
-neighbours :: Behavior [Point]
-neighbours = do
-  as <- _planeAgents <$> ask
-  return $
-    map _agentPosition as
-    
-nearObstacles :: Behavior [Point]
-nearObstacles = do
-  os <- _planeObstacles <$> ask
-  return $
-    map _obstPositions os
+neighbours :: Float -> Behavior [Agent]
+neighbours dMax = do
+  p <- use agentPosition
+  r <- use agentRadius
+  filter (\a -> dist (_agentPosition a) p < dMax - (r + _agentRadius a)) <$> view planeAgents
+
+nearObstacles :: Float -> Behavior [Obstacle]
+nearObstacles dMax = do
+  p <- use agentPosition
+  r <- use agentRadius
+  filter (\o -> dist (_obstPosition o) p < dMax - (r + _obstRadius o)) <$> view planeObstacles
 
 -- | Simulates the plane by one step according to a function,
 --   which defines the behavior of an agent in the plane.
@@ -299,13 +302,12 @@ instance Render Agent where
 
     Sensor r agl r' pr = _agentSensor a
 
+    getSense [] = error "getSense [] happend"
     getSense [p] = p
     getSense (p:ps) = case checkPoint plane p (a^.agentSensor.sensorRange) of
       Nothing -> getSense ps
       Just _ -> p
 
-    dist :: Point -> Point -> Float
-    dist (x,y) (x',y') = sqrt ((x'-x)^2 + (y'-y)^2)
 
     cross = pictures [line [(-pr,0),(pr,0)],line [(0,-pr),(0,pr)]]
     rays = a
