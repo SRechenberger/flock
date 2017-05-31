@@ -1,9 +1,12 @@
 {-# LANGUAGE TemplateHaskell #-}
 module Flock
   ( 
+  -- * Behavior Monad
+    Behavior
+  , runBehavior
   -- * Sensor configuration
   -- ** Type
-    Sensor (..)
+  , Sensor (..)
   -- ** Constructor
   , mkSensor
   -- ** Lenses
@@ -14,7 +17,7 @@ module Flock
   -- ** Constructor
   , mkAgent
   -- ** Control functions
-  , move, scan, turn, turnTowards, neighbours, nearObstacles
+  , move, scan, turn, turnTowards --, neighbours, nearObstacles
   -- ** Lenses
   , agentPosition, agentRadius, agentDirection, agentSpeed
   , agentSensor, agentFlocking, agentAtDest
@@ -33,28 +36,25 @@ module Flock
   -- * Object Info
   , Info (..)
   -- * Geometry
-  , Angle, Distance, Level
+  , Angle, Distance --, Level
   -- * Rendering
   , Render (..)
   -- * DEBUG
-  , sensorPoints, Behavior
+  -- , sensorPoints
   )
   where
 
-import Control.Lens hiding (Level)
-import Control.Applicative ((<|>))
+import Control.Lens
+  ( makeLenses
+  , (^.), (&), use, (%~), _1, _2, both, view)
 import Control.Monad.Random (Rand, runRand)
 import Control.Monad.Reader
 import Control.Monad.State
 
-import Data.Maybe
-import Data.List (find, sortBy)
-import Data.Function (on)
 
 import Graphics.Gloss.Data.Picture -- (Point)
 import Graphics.Gloss.Data.Vector -- (Vector, normalizeV)
 import Graphics.Gloss.Data.Color
-import Graphics.Gloss.Geometry.Angle
 
 import System.Random (StdGen)
 
@@ -91,6 +91,11 @@ data Plane = Plane
 
 type Behavior a = ReaderT Plane (StateT Agent (Rand StdGen)) a
 
+makeLenses ''Sensor
+makeLenses ''Agent
+makeLenses ''Obstacle
+makeLenses ''Plane
+
 dist :: Point -> Point -> Float
 dist (x,y) (x',y') = sqrt ((x'-x)^2 + (y'-y)^2)
 
@@ -101,7 +106,6 @@ runBehavior action gen plane agent = (a,agent',gen')
     ((a,agent'),gen') = runRand agentM' gen
 
 
-makeLenses ''Sensor
 
 -- | Constructs a sensor config
 mkSensor :: Int     -- ^ Number of scans per ray
@@ -113,7 +117,6 @@ mkSensor s r l r'= Sensor l ((2*pi) / toEnum r) (l / toEnum s) r'
 
 -- | Agents are circular autonomous mobile objects, searching of there destination.
 
-makeLenses ''Agent
 
 -- | Constructs an agent
 mkAgent :: Point  -- ^ Starting position
@@ -170,14 +173,13 @@ turnTowards = modify . turnTowards'
 
 -- | Obstacles are circular objects, which can not be passed by any agent.
 
-makeLenses ''Obstacle
 
 
 data Info = AGENT | OBSTACLE
   deriving (Show, Eq)
 
-makeLenses ''Plane
 
+{-
 type Ray a = (Angle, a)
 
 -- | Calculates the front and back sensor rays, cast by an agent,
@@ -242,16 +244,12 @@ scanP :: Plane                  -- ^ The plane, in which the agent exists
 scanP p a = scannedPositions a & both.mapped %~ scan' p (a^.agentSensor.sensorPointRadius)
  where
   (front, back) = scannedPositions a
-
--- | Scans the plane around an agent
-scan :: Behavior [(Level, Angle, Info)]
+-}
+-- | Scans the plane around an agent, returning all agents and obstacles withing it's sensor range
+scan :: Behavior ([Agent],[Obstacle])
 scan = do
-  agent <- get
-  plane <- ask
-  return
-    $ catMaybes
-    $ uncurry (++)
-    $ scanP plane agent
+  range <- use $ agentSensor . sensorRange
+  (,) <$> neighbours range <*> nearObstacles range
 
 neighbours :: Float -> Behavior [Agent]
 neighbours dMax = do
@@ -284,7 +282,7 @@ class Render a where
   render :: Plane -> a -> Picture
 
 instance Render Agent where
-  render plane a = pictures [a', dir]
+  render _ a = pictures [a', dir]
    where
     fl = _agentFlocking a
     at = _agentAtDest a
@@ -297,10 +295,13 @@ instance Render Agent where
        $ color c
        $ circleSolid (_agentRadius a)
 
+    Sensor r _ _ pr = _agentSensor a
+
+    cross = pictures [line [(-pr,0),(pr,0)],line [(0,-pr),(0,pr)]]
+
+{-
     s' = color black
        $ pts
-
-    Sensor r agl r' pr = _agentSensor a
 
     getSense [] = error "getSense [] happend"
     getSense [p] = p
@@ -309,7 +310,6 @@ instance Render Agent where
       Just _ -> p
 
 
-    cross = pictures [line [(-pr,0),(pr,0)],line [(0,-pr),(0,pr)]]
     rays = a
         & scannedPositions
         & uncurry (++)
@@ -326,6 +326,7 @@ instance Render Agent where
         & mapped.mapped %~ (\(x,y) -> cross & translate x y)
         & map pictures
         & pictures
+-}
     dir = a
         & _agentDirection
         & (\d@(x,y) -> pictures [line [(0,0)
@@ -337,9 +338,9 @@ instance Render Agent where
 
 
 instance Render Obstacle where
-  render plane o = translate (o^.obstPosition._1) (o^.obstPosition._2)
-                 $ color black
-                 $ circleSolid (_obstRadius o)
+  render _ o = translate (o^.obstPosition._1) (o^.obstPosition._2)
+             $ color black
+             $ circleSolid (_obstRadius o)
 
 instance Render Plane where
   render _ p = pictures

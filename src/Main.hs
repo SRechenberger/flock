@@ -2,10 +2,14 @@ module Main where
 
 -- import Data.Function
 -- import Data.List
-import Data.Maybe (catMaybes)
+import Data.Maybe
+  ()
 
-import Control.Lens ((^.),_1,_2,_3,(.=))
-import Control.Monad.Random (getRandomR)
+import Control.Lens
+  ()
+
+import Control.Monad.Random
+  ()
 -- import System.Random (StdGen)
 
 import Graphics.Gloss
@@ -38,19 +42,6 @@ average as = sum as / toEnum (length as)
 
 behavior :: Behavior ()
 behavior = do
-  scn <- scan
-  case scn of
-    [] -> do
-      angle <- getRandomR (-pi/8,pi/8)
-      turn angle
-      agentFlocking .= False
-    agts -> do
-      case filter ((<=1) . (^._1)) agts of
-        (_,angl,_):_ -> turn (pi-angl)
-        [] -> case filter ((> 2) . (^._1)) agts of
-                [] -> return ()
-                as -> turn (average (map (^._2) as))
-      agentFlocking .= True
   move
 
 main :: IO ()
