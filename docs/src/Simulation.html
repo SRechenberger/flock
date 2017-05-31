@@ -1,0 +1,97 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml"><head><link rel="stylesheet" type="text/css" href="style.css" /><script type="text/javascript" src="highlight.js"></script></head><body><pre><span class="hs-pragma">{-# LANGUAGE TemplateHaskell #-}</span><span>
+</span><a name="line-2"></a><span class="hs-keyword">module</span><span> </span><span class="hs-identifier">Simulation</span><span>
+</span><a name="line-3"></a><span>  </span><span class="hs-special">(</span><span>
+</span><a name="line-4"></a><span>  </span><span class="hs-comment">-- * Simulation</span><span>
+</span><a name="line-5"></a><span>  </span><a href="Simulation.html#runSim"><span class="hs-identifier hs-var">runSim</span></a><span>
+</span><a name="line-6"></a><span>  </span><span class="hs-special">)</span><span class="hs-keyword">where</span><span>
+</span><a name="line-7"></a><span>
+</span><a name="line-8"></a><span class="hs-keyword">import</span><span> </span><span class="hs-identifier">Graphics</span><span class="hs-operator">.</span><span class="hs-identifier">Gloss</span><span>
+</span><a name="line-9"></a><span class="hs-keyword">import</span><span> </span><span class="hs-identifier">Graphics</span><span class="hs-operator">.</span><span class="hs-identifier">Gloss</span><span class="hs-operator">.</span><span class="hs-identifier">Interface</span><span class="hs-operator">.</span><span class="hs-identifier">IO</span><span class="hs-operator">.</span><span class="hs-identifier">Game</span><span>
+</span><a name="line-10"></a><span>
+</span><a name="line-11"></a><span class="hs-keyword">import</span><span> </span><span class="hs-identifier">System</span><span class="hs-operator">.</span><span class="hs-identifier">Random</span><span> </span><span class="hs-special">(</span><span class="hs-identifier hs-type">StdGen</span><span class="hs-special">,</span><span> </span><span class="hs-identifier hs-var">getStdGen</span><span class="hs-special">)</span><span>
+</span><a name="line-12"></a><span class="hs-keyword">import</span><span> </span><span class="hs-identifier">Control</span><span class="hs-operator">.</span><span class="hs-identifier">Monad</span><span class="hs-operator">.</span><span class="hs-identifier">Random</span><span> </span><span class="hs-special">(</span><span class="hs-identifier hs-type">Rand</span><span class="hs-special">,</span><span> </span><span class="hs-identifier hs-var">runRand</span><span class="hs-special">)</span><span>
+</span><a name="line-13"></a><span>
+</span><a name="line-14"></a><span class="hs-keyword">import</span><span> </span><span class="hs-identifier">Control</span><span class="hs-operator">.</span><span class="hs-identifier">Lens</span><span>
+</span><a name="line-15"></a><span class="hs-keyword">import</span><span> </span><span class="hs-identifier">Control</span><span class="hs-operator">.</span><span class="hs-identifier">Monad</span><span class="hs-operator">.</span><span class="hs-identifier">Reader</span><span>
+</span><a name="line-16"></a><span class="hs-keyword">import</span><span> </span><span class="hs-identifier">Control</span><span class="hs-operator">.</span><span class="hs-identifier">Monad</span><span class="hs-operator">.</span><span class="hs-identifier">State</span><span>
+</span><a name="line-17"></a><span>
+</span><a name="line-18"></a><span class="hs-keyword">import</span><span> </span><a href="Flock.html"><span class="hs-identifier">Flock</span></a><span>
+</span><a name="line-19"></a><span>
+</span><a name="line-20"></a><span class="hs-keyword">data</span><span> </span><a name="SimState"><a href="Simulation.html#SimState"><span class="hs-identifier">SimState</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><a name="SimState"><a href="Simulation.html#SimState"><span class="hs-identifier">SimState</span></a></a><span>
+</span><a name="line-21"></a><span>  </span><span class="hs-special">{</span><span> </span><a name="_plane"><a href="Simulation.html#_plane"><span class="hs-identifier">_plane</span></a></a><span> </span><span class="hs-glyph">::</span><span> </span><a href="Flock.html#Plane"><span class="hs-identifier hs-type">Plane</span></a><span>
+</span><a name="line-22"></a><span>  </span><span class="hs-special">,</span><span> </span><a name="_rgen"><a href="Simulation.html#_rgen"><span class="hs-identifier">_rgen</span></a></a><span>  </span><span class="hs-glyph">::</span><span> </span><span class="hs-identifier hs-type">StdGen</span><span>
+</span><a name="line-23"></a><span>  </span><span class="hs-special">,</span><span> </span><a name="_pause"><a href="Simulation.html#_pause"><span class="hs-identifier">_pause</span></a></a><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-identifier hs-type">Bool</span><span>
+</span><a name="line-24"></a><span>  </span><span class="hs-special">}</span><span> </span><span class="hs-keyword">deriving</span><span> </span><span class="hs-identifier hs-type">Show</span><span>
+</span><a name="line-25"></a><span>
+</span><a name="line-26"></a><span class="hs-identifier hs-var">makeLenses</span><span> </span><span class="hs-char">''SimState
+
+type Transition = SimState -&gt; SimState
+
+window :: Int -&gt; Int -&gt; Display
+window w h = InWindow &quot;Flock&quot; (w,h) (0,0)
+
+bgColor :: Color
+bgColor = white
+
+fps :: Int
+fps = 30
+
+-- | Simulation control
+inputHandler :: Event -&gt; Transition
+inputHandler (EventKey (MouseButton LeftButton) Down _ p) =
+  plane.planeObstacles %~ (o:)
+ where
+  o = Obstacle p 10
+inputHandler (EventKey (MouseButton RightButton) Down _ p) =
+  plane.planeAgents %~ (a:)
+ where
+  a = mkAgent p 3 (1,1) 1 (mkSensor 8 8 32 8)
+inputHandler (EventKey (SpecialKey KeySpace) Down _ _) =
+  pause %~ not
+inputHandler (EventKey (Char 'r') Down _ _) =
+  plane .~ Plane [] []
+inputHandler _ = id
+
+-- | One step of the simulation, unsing the @step@ function.
+simStep :: (Plane -&gt; Agent -&gt; Agent) -&gt; Float -&gt; Transition
+simStep f _ p
+  | p^.pause = p
+  | otherwise = p &amp; plane %~ step f
+
+-- | As @simStep@, but with its behavior function in a random monad.
+simStepR :: (Plane -&gt; Agent -&gt; Rand StdGen Agent) -&gt; Float -&gt; Transition
+simStepR f _ p
+  | p^.pause  = p
+  | otherwise = p{ _plane=plane', _rgen=gen'}
+ where
+  (plane', gen') = runRand (stepR f (_plane p)) (_rgen p)
+
+
+-- | Runs the simulation in a window, given the window size,
+--   a plane, to simulate and a behavior function.
+runSim :: Int -&gt; Int -&gt; Plane
+       -&gt; Behavior ()
+       -&gt; IO ()
+runSim w h p b =
+  runSimR w h p
+    (\pl ag -&gt; do
+      ((),a') &lt;- runStateT (runReaderT b pl) ag
+      return a')
+
+-- | As @runSim@ but with a random-monadic behavior function.
+runSimR :: Int                         -- ^ Window width
+        -&gt; Int                         -- ^ Window height
+        -&gt; Plane                       -- ^ Plane to simulate
+        -&gt; (Plane -&gt; Agent -&gt; Rand StdGen Agent)   -- ^ Behavior function
+        -&gt; IO ()
+runSimR w h p f = do
+  r &lt;- getStdGen
+  play
+    (window w h)
+    bgColor
+    fps
+    (SimState p r True)
+    (render p . _plane)
+    inputHandler
+    (simStepR f)
+</span></pre></body></html>
