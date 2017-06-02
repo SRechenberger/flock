@@ -4,23 +4,15 @@ module Flock
   -- * Behavior Monad
     Behavior
   , runBehavior
-  -- * Sensor configuration
-  -- ** Type
-  , Sensor (..)
-  -- ** Constructor
-  , mkSensor
-  -- ** Lenses
-  , sensorRange, sensorRayAngle, sensorRaySect, sensorPointRadius
-  -- * Agents
   -- ** Type
   , Agent (..)
   -- ** Constructor
   , mkAgent
   -- ** Control functions
-  , move, scan, turn, turnTowards --, neighbours, nearObstacles
+  , move, scan, turn, turnTowards, turnAway --, neighbours, nearObstacles
   -- ** Lenses
   , agentPosition, agentRadius, agentDirection, agentSpeed
-  , agentSensor, agentFlocking, agentAtDest
+  , agentSensorRange, agentFlocking, agentAtDest
   -- * Obstacles
   -- ** Type
   , Obstacle (..)
@@ -39,18 +31,21 @@ module Flock
   , Render (..)
   -- * DEBUG
   -- , sensorPoints
+  -- * Utils
+  , dist, collidesWith, distance, IsObject (..)
   )
   where
 
 import Control.Lens
   ( makeLenses
-  , (^.), (&), use, (%~), _1, _2, both, view)
+  , (^.), (&), use, (%~), _1, _2, both, view, (%=), (.=))
 
-import Control.Monad.Random (Rand, runRand)
+import Control.Monad.Random (Rand, runRand, getRandomR)
 
 import Control.Monad.Reader
 
 import Control.Monad.State
+
 
 
 import Graphics.Gloss.Data.Picture -- (Point)
@@ -67,23 +62,15 @@ import System.Random (StdGen)
 type Angle = Float
 type Distance = Float
 
-data Sensor = Sensor
-  { _sensorRange       :: Distance
-  , _sensorRayAngle    :: Angle
-  , _sensorRaySect     :: Distance
-  , _sensorPointRadius :: Distance
-  }
-  deriving(Show, Eq)
-
 -- | Agents are circular autonomous mobile objects, searching of there destination.
 data Agent = Agent
-  { _agentPosition  :: Point   -- ^ Position of the agent on the plane
-  , _agentRadius    :: Float   -- ^ Radius of the agent
-  , _agentDirection :: Vector  -- ^ Direction, in which the agent is heading
-  , _agentSpeed     :: Float   -- ^ Speed at which the agent is moving
-  , _agentSensor    :: Sensor  -- ^ Sensor range of the agent
-  , _agentFlocking  :: Bool    -- ^ Is the agent in a flock?
-  , _agentAtDest    :: Bool    -- ^ Is the agent or its flock at its destination?
+  { _agentPosition    :: Point   -- ^ Position of the agent on the plane
+  , _agentRadius      :: Float   -- ^ Radius of the agent
+  , _agentDirection   :: Vector  -- ^ Direction, in which the agent is heading
+  , _agentSpeed       :: Float   -- ^ Speed at which the agent is moving
+  , _agentSensorRange :: Distance-- ^ Sensor range of the agent
+  , _agentFlocking    :: Bool    -- ^ Is the agent in a flock?
+  , _agentAtDest      :: Bool    -- ^ Is the agent or its flock at its destination?
   } deriving (Show, Eq)
 
 -- | Obstacles are circular objects, which can not be passed by any agent.
@@ -99,7 +86,6 @@ data Plane = Plane
 
 type Behavior a = ReaderT Plane (StateT Agent (Rand StdGen)) a
 
-makeLenses ''Sensor
 makeLenses ''Agent
 makeLenses ''Obstacle
 makeLenses ''Plane
@@ -113,20 +99,12 @@ runBehavior action gen plane agent = (a,agent',gen')
     agentM' = runStateT (runReaderT action plane) agent
     ((a,agent'),gen') = runRand agentM' gen
 
--- | Constructs a sensor config
-mkSensor :: Int     -- ^ Number of scans per ray
-         -> Int     -- ^ Number of rays
-         -> Float   -- ^ Ray length
-         -> Float   -- ^ Radius of a scan point
-         -> Sensor
-mkSensor s r l r'= Sensor l ((2*pi) / toEnum r) (l / toEnum s) r'
-
 -- | Constructs an agent
 mkAgent :: Point  -- ^ Starting position
         -> Float  -- ^ Radius of the agent (size)
         -> Vector -- ^ Initial direction
         -> Float  -- ^ Initial speed
-        -> Sensor -- ^ Sensor config
+        -> Distance -- ^ Sensor range
         -> Agent
 mkAgent p r d s f = Agent p r d s f False False
 
@@ -146,9 +124,15 @@ move' agent = agent { _agentPosition = p }
   (x,y) = _agentPosition agent
   p = (x+dx,y+dy)
 
--- | Moves an agent, according to its state
+-- | Moves an agent, according to its state;
 move :: Behavior ()
-move = modify move'
+move = do
+  (dx,dy) <- use agentDirection
+  when (dx == 0 && dy == 0) $ do
+    d <- (,) <$> getRandomR (-1,1) <*> getRandomR (-1,1)
+    agentDirection .= d
+  modify move'
+
 
 -- | Turns an agent by an angle
 turn' :: Angle -> Agent -> Agent
@@ -168,16 +152,19 @@ turn = modify . turn'
 
 -- | Lets the agent directly head to a specific point.
 turnTowards' :: Point -> Agent -> Agent
-turnTowards' (tx,ty) agent = agent { _agentDirection = d' }
+turnTowards' t agent = agent { _agentDirection = d' }
  where
-  (x,y) = _agentPosition agent
-  d' = (tx-x, ty-y)
-     & normalizeV
+  p = _agentPosition agent
+  d' = t-p
 
 -- | Lets the agent directly head to a specific point.
 turnTowards :: Point -> Behavior ()
 turnTowards = modify . turnTowards'
 
+turnAway :: Point -> Behavior ()
+turnAway p = do
+  turnTowards p
+  agentDirection %= negate
 
 --------------------------------------------------------------------------------
 -- Scanning --------------------------------------------------------------------
@@ -186,21 +173,14 @@ turnTowards = modify . turnTowards'
 -- | Scans the plane around an agent, returning all agents and obstacles withing it's sensor range
 scan :: Behavior ([Agent],[Obstacle])
 scan = do
-  range <- use $ agentSensor . sensorRange
-  (,) <$> neighbours range <*> nearObstacles range
-
-neighbours :: Float -> Behavior [Agent]
-neighbours dMax = do
-  p <- use agentPosition
-  r <- use agentRadius
-  filter (\a -> dist (_agentPosition a) p < dMax - (r + _agentRadius a)) <$> view planeAgents
-
-nearObstacles :: Float -> Behavior [Obstacle]
-nearObstacles dMax = do
-  p <- use agentPosition
-  r <- use agentRadius
-  filter (\o -> dist (_obstPosition o) p < dMax - (r + _obstRadius o)) <$> view planeObstacles
-
+  self <- get
+  range <- use $ agentSensorRange
+  agents <- filter (/= self)
+          . filter ((<= range) . distance self)
+          <$> view planeAgents
+  obsts <- filter ((<= range) . distance self)
+         <$> view planeObstacles
+  return (agents, obsts)
 
 
 --------------------------------------------------------------------------------
@@ -223,6 +203,34 @@ stepR f p = do
   return p{_planeAgents = as}
 
 
+--------------------------------------------------------------------------------
+-- Collision -------------------------------------------------------------------
+--------------------------------------------------------------------------------
+
+-- | A class of objects in the simulated plane.
+class IsObject obj where
+  -- | Returns the radius of an object.
+  radius :: obj -> Float
+  -- | Returns the position of an object.
+  position :: obj -> Point
+
+instance IsObject Obstacle where
+  radius = _obstRadius
+  position = _obstPosition
+
+instance IsObject Agent where
+  radius = _agentRadius
+  position = _agentPosition
+
+-- | Calculates the edge-to-edge-distance between two objects.
+distance :: (IsObject a, IsObject b)
+         => a -> b -> Distance
+distance a b = dist (position a) (position b) - (radius a + radius b)
+
+-- | Checks, whether two objects collide.
+collidesWith :: (IsObject a, IsObject b)
+             => a -> b -> Bool
+a `collidesWith` b = distance a b <= 0
 
 --------------------------------------------------------------------------------
 -- Rendering -------------------------------------------------------------------
@@ -232,7 +240,7 @@ class Render a where
   render :: Plane -> a -> Picture
 
 instance Render Agent where
-  render _ a = pictures [a', dir]
+  render _ a = pictures [a']
    where
     fl = _agentFlocking a
     at = _agentAtDest a
@@ -245,9 +253,9 @@ instance Render Agent where
        $ color c
        $ circleSolid (_agentRadius a)
 
-    Sensor r _ _ pr = _agentSensor a
+    r = _agentSensorRange a
 
-    cross = pictures [line [(-pr,0),(pr,0)],line [(0,-pr),(0,pr)]]
+    cross = pictures [line [(-5,0),(5,0)],line [(0,-5),(0,5)]]
 
     dir = a
         & _agentDirection
@@ -268,10 +276,12 @@ instance Render Plane where
   render _ p = pictures
     $ map (render p) (p^.planeAgents) 
     ++ map (render p) (p^.planeObstacles)
+    {-
     ++ [circle 100
         & translate 100 100
         & color blue
         ]
+    -}
 
 
 

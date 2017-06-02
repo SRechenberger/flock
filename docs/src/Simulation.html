@@ -45,7 +45,7 @@ inputHandler (EventKey (MouseButton LeftButton) Down _ p) =
 inputHandler (EventKey (MouseButton RightButton) Down _ p) =
   plane.planeAgents %~ (a:)
  where
-  a = mkAgent p 3 (1,1) 1 (mkSensor 8 8 32 8)
+  a = mkAgent p 5 (1,1) 1 80
 inputHandler (EventKey (SpecialKey KeySpace) Down _ _) =
   pause %~ not
 inputHandler (EventKey (Char 'r') Down _ _) =

@@ -8,24 +8,11 @@
 module Flock
 type Behavior a = ReaderT Plane (StateT Agent (Rand StdGen)) a
 runBehavior :: Behavior a -> StdGen -> Plane -> Agent -> (a, Agent, StdGen)
-data Sensor
-Sensor :: Distance -> Angle -> Distance -> Distance -> Sensor
-[_sensorRange] :: Sensor -> Distance
-[_sensorRayAngle] :: Sensor -> Angle
-[_sensorRaySect] :: Sensor -> Distance
-[_sensorPointRadius] :: Sensor -> Distance
-
--- | Constructs a sensor config
-mkSensor :: Int -> Int -> Float -> Float -> Sensor
-sensorRange :: Lens' Sensor Distance
-sensorRayAngle :: Lens' Sensor Angle
-sensorRaySect :: Lens' Sensor Distance
-sensorPointRadius :: Lens' Sensor Distance
 
 -- | Agents are circular autonomous mobile objects, searching of there
 --   destination.
 data Agent
-Agent :: Point -> Float -> Vector -> Float -> Sensor -> Bool -> Bool -> Agent
+Agent :: Point -> Float -> Vector -> Float -> Distance -> Bool -> Bool -> Agent
 
 -- | Position of the agent on the plane
 [_agentPosition] :: Agent -> Point
@@ -40,7 +27,7 @@ Agent :: Point -> Float -> Vector -> Float -> Sensor -> Bool -> Bool -> Agent
 [_agentSpeed] :: Agent -> Float
 
 -- | Sensor range of the agent
-[_agentSensor] :: Agent -> Sensor
+[_agentSensorRange] :: Agent -> Distance
 
 -- | Is the agent in a flock?
 [_agentFlocking] :: Agent -> Bool
@@ -49,9 +36,9 @@ Agent :: Point -> Float -> Vector -> Float -> Sensor -> Bool -> Bool -> Agent
 [_agentAtDest] :: Agent -> Bool
 
 -- | Constructs an agent
-mkAgent :: Point -> Float -> Vector -> Float -> Sensor -> Agent
+mkAgent :: Point -> Float -> Vector -> Float -> Distance -> Agent
 
--- | Moves an agent, according to its state
+-- | Moves an agent, according to its state;
 move :: Behavior ()
 
 -- | Scans the plane around an agent, returning all agents and obstacles
@@ -63,11 +50,12 @@ turn :: Angle -> Behavior ()
 
 -- | Lets the agent directly head to a specific point.
 turnTowards :: Point -> Behavior ()
+turnAway :: Point -> Behavior ()
 agentPosition :: Lens' Agent Point
 agentRadius :: Lens' Agent Float
 agentDirection :: Lens' Agent Vector
 agentSpeed :: Lens' Agent Float
-agentSensor :: Lens' Agent Sensor
+agentSensorRange :: Lens' Agent Distance
 agentFlocking :: Lens' Agent Bool
 agentAtDest :: Lens' Agent Bool
 
@@ -99,6 +87,24 @@ type Angle = Float
 type Distance = Float
 class Render a
 render :: Render a => Plane -> a -> Picture
+dist :: Point -> Point -> Float
+
+-- | Checks, whether two objects collide.
+collidesWith :: (IsObject a, IsObject b) => a -> b -> Bool
+
+-- | Calculates the edge-to-edge-distance between two objects.
+distance :: (IsObject a, IsObject b) => a -> b -> Distance
+
+-- | A class of objects in the simulated plane.
+class IsObject obj
+
+-- | Returns the radius of an object.
+radius :: IsObject obj => obj -> Float
+
+-- | Returns the position of an object.
+position :: IsObject obj => obj -> Point
+instance Flock.IsObject Flock.Obstacle
+instance Flock.IsObject Flock.Agent
 instance Flock.Render Flock.Agent
 instance Flock.Render Flock.Obstacle
 instance Flock.Render Flock.Plane
@@ -108,8 +114,6 @@ instance GHC.Classes.Eq Flock.Obstacle
 instance GHC.Show.Show Flock.Obstacle
 instance GHC.Classes.Eq Flock.Agent
 instance GHC.Show.Show Flock.Agent
-instance GHC.Classes.Eq Flock.Sensor
-instance GHC.Show.Show Flock.Sensor
 
 module Simulation
 
