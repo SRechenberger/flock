@@ -48,7 +48,7 @@ import Control.Monad.Reader
 
 import Control.Monad.State
 
-
+import Data.List (find)
 
 import Graphics.Gloss.Data.Picture -- (Point)
 import Graphics.Gloss.Data.Vector -- (Vector, normalizeV)
@@ -56,6 +56,7 @@ import Graphics.Gloss.Data.Color
 
 import System.Random (StdGen)
 
+import Debug.Trace (trace)
 
 --------------------------------------------------------------------------------
 -- Data ------------------------------------------------------------------------
@@ -203,6 +204,29 @@ stepR :: (Plane -> Agent -> Rand g Agent)
 stepR f p = do
   as <- mapM (f p) (_planeAgents p)
   return p{_planeAgents = as}
+
+-- | Resolves collisions
+bump :: Plane -> Plane
+bump (Plane as os) = Plane as' os
+ where
+  as' = bump' as
+  bump' as = case find (\(a,o) -> a `collidesWith` o) [ (a,o) | a <- as, o <- os] of
+    Nothing    -> as
+    Just (a,o) -> bump' $ map
+      (\a' -> if position a == position a'
+        then let
+            d = max (radius a) $ dist (position o) (position a)
+            v' = position o - position a
+            v | v' == (0,0) = (1,1)
+              | otherwise   = v'
+            m = trace (show d) $ 1/magV v
+            off = d `mulSV` ((m,m) * v)
+          in trace (show off) a { _agentPosition = position a + off }
+        else a')
+      as
+
+
+
 
 
 --------------------------------------------------------------------------------

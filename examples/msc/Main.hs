@@ -19,7 +19,7 @@ import Data.List (find, maximumBy)
 import Data.Function (on)
 
 main :: IO ()
-main = runSim 1000 1000 area behavior
+main = runSim 1000 1000 0 area behavior
 
 area :: Plane
 area = Plane
@@ -29,19 +29,14 @@ area = Plane
     , j <- [-100, -90..100]
     , j^2 + i^2 <= 100 ^2
     ]
-  , _planeObstacles =
-    [ Obstacle (i,j) 10
-    | i <- [-300,-280..300]
-    , j <- [-300,-280..300]
-    , i <= -250 || i >= 250 || j <= -250 || j >= 250
-    ]
+  , _planeObstacles = []
   }
 
 rad, sensorRange, desired, minimal :: Float
 rad = 5
-sensorRange = rad * 4
-desired = rad * 2
-minimal = sensorRange * 3/4
+sensorRange = rad * 10
+desired = rad * 1.1
+minimal = sensorRange
 
 collisionAvoidance :: Behavior Bool
 collisionAvoidance = do
@@ -52,7 +47,6 @@ collisionAvoidance = do
           & filter (\o -> distance self o <= rad * 1.5)
           & (not . null)
   when cos $ do
-    agentFlocking .= False
     lr <- uniform [-pi/2,pi/2]
     turn lr
   return cos
@@ -74,7 +68,6 @@ separation = do
         turnRight
       when (isOnRight self a)
         turnLeft
-      agentFlocking .= False
       return True
 
 cohesion :: Behavior Bool
@@ -92,7 +85,6 @@ cohesion = do
       , (rs, turnRight)
       , (bs, turnRandomly)
       ]
-    agentFlocking .= True
     return True
 
 turnStrength :: Angle
@@ -114,10 +106,15 @@ behavior = do
   (as, os) <- scan
   self     <- get
 
+  move
+  if length (filter _agentFlocking as) >= 1 || length as >= 5
+    then agentFlocking .= True
+    else agentFlocking .= False
+
   ca <- collisionAvoidance
   when (not ca) $ do
     s <- separation
     when (not s) $ do
-      cohesion
-      return ()
-  move
+      c <- cohesion
+      when (not c)
+        move

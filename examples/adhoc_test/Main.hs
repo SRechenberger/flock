@@ -30,7 +30,7 @@ import Simulation
 area :: Plane
 area = Plane
   { _planeAgents = concat
-      [ replicate 1 (mkAgent (i,j) (5) (0,0) 1 40)
+      [ replicate 1 (mkAgent (i,j) (5) (0,0) 5 40)
       | i <- [-m,-(m-10)..m]
       , j <- [-m,-(m-10)..m]
       ]
@@ -93,4 +93,4 @@ behavior = do
 
 main :: IO ()
 main = do
-  runSim 1000 1000 area behavior
+  runSim 1000 1000 100 area behavior
