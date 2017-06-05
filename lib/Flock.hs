@@ -32,7 +32,9 @@ module Flock
   -- * DEBUG
   -- , sensorPoints
   -- * Utils
-  , dist, collidesWith, distance, IsObject (..)
+  , dist, collidesWith, distance, angle
+  , isOnLeft, isOnRight, scanD, lookThere
+  , IsObject (..)
   )
   where
 
@@ -90,8 +92,6 @@ makeLenses ''Agent
 makeLenses ''Obstacle
 makeLenses ''Plane
 
-dist :: Point -> Point -> Float
-dist (x,y) (x',y') = sqrt ((x'-x)^2 + (y'-y)^2)
 
 runBehavior :: Behavior a -> StdGen -> Plane -> Agent -> (a,Agent,StdGen)
 runBehavior action gen plane agent = (a,agent',gen')
@@ -132,6 +132,8 @@ move = do
     d <- (,) <$> getRandomR (-1,1) <*> getRandomR (-1,1)
     agentDirection .= d
   modify move'
+
+
 
 
 -- | Turns an agent by an angle
@@ -227,11 +229,59 @@ distance :: (IsObject a, IsObject b)
          => a -> b -> Distance
 distance a b = dist (position a) (position b) - (radius a + radius b)
 
+dist :: Point -> Point -> Float
+dist (x,y) (x',y') = sqrt ((x'-x)^2 + (y'-y)^2)
+
 -- | Checks, whether two objects collide.
 collidesWith :: (IsObject a, IsObject b)
              => a -> b -> Bool
 a `collidesWith` b = distance a b <= 0
 
+-- | Returns the Angle between the direction vector
+--   and the vector between the agent and another object;
+--
+--   ATTENTION! The angle returned is symmetrical for both sides;
+--   i.e.: if the angle is, e.g., PI/2, it is either 90 Degrees on the left
+--   or on the right side.
+angle :: (IsObject a)
+      => Agent -> a -> Angle
+angle a o = angleVV (position o - position a) (_agentDirection a)
+
+lookThere :: (IsObject a)
+          => Angle -> Angle -> Agent -> a -> Bool
+lookThere ga be a o = al <= be
+ where
+  al = angleVV dl dp
+  dl = rotateV ga (_agentDirection a)
+  dp = position o - position a
+
+-- | Checks, whether a give object is on the @right@ side of the agent.
+isOnRight :: (IsObject a)
+         => Agent -> a -> Bool
+isOnRight = lookThere (pi/2) (pi/2)
+
+-- | Checks, whether a give object is on the @left@ side of the agent.
+isOnLeft :: (IsObject a)
+         => Agent -> a -> Bool
+isOnLeft = lookThere (-pi/2) (pi/2)
+
+-- | Checks, whether a give object is @behind@ the agent.
+isBehind :: (IsObject a)
+         => Agent -> a -> Bool
+isBehind = lookThere pi (pi/2)
+
+-- | Scans only in a certain direction, with a certain field of view
+scanD :: ()
+      => Angle  -- ^ Direction of view
+      -> Angle  -- ^ Field of view
+      -> Behavior ([Agent],[Obstacle])
+scanD ga be = do
+  scn <- scan
+  self <- get
+  return $ scn
+         & _1 %~ filter (lookThere ga be self)
+         & _2 %~ filter (lookThere ga be self)
+  
 --------------------------------------------------------------------------------
 -- Rendering -------------------------------------------------------------------
 --------------------------------------------------------------------------------
@@ -240,7 +290,7 @@ class Render a where
   render :: Plane -> a -> Picture
 
 instance Render Agent where
-  render _ a = pictures [a']
+  render _ a = pictures [a', dir]
    where
     fl = _agentFlocking a
     at = _agentAtDest a
@@ -259,9 +309,7 @@ instance Render Agent where
 
     dir = a
         & _agentDirection
-        & (\d@(x,y) -> pictures [line [(0,0)
-                                      , (r + 10) `mulSV` normalizeV d]
-                                , translate x y cross])
+        & (\d@(x,y) -> line [(0,0), (r + 10) `mulSV` normalizeV d])
         & color green
         & translate (a^.agentPosition._1) (a^.agentPosition._2)
 
@@ -274,8 +322,8 @@ instance Render Obstacle where
 
 instance Render Plane where
   render _ p = pictures
-    $ map (render p) (p^.planeAgents) 
-    ++ map (render p) (p^.planeObstacles)
+    $ map (render p) (p^.planeObstacles)
+    ++ map (render p) (p^.planeAgents)
     {-
     ++ [circle 100
         & translate 100 100

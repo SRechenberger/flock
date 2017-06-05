@@ -95,6 +95,26 @@ collidesWith :: (IsObject a, IsObject b) => a -> b -> Bool
 -- | Calculates the edge-to-edge-distance between two objects.
 distance :: (IsObject a, IsObject b) => a -> b -> Distance
 
+-- | Returns the Angle between the direction vector and the vector between
+--   the agent and another object;
+--   
+--   ATTENTION! The angle returned is symmetrical for both sides; i.e.: if
+--   the angle is, e.g., PI/2, it is either 90 Degrees on the left or on
+--   the right side.
+angle :: (IsObject a) => Agent -> a -> Angle
+
+-- | Checks, whether a give object is on the <tt>left</tt> side of the
+--   agent.
+isOnLeft :: (IsObject a) => Agent -> a -> Bool
+
+-- | Checks, whether a give object is on the <tt>right</tt> side of the
+--   agent.
+isOnRight :: (IsObject a) => Agent -> a -> Bool
+
+-- | Scans only in a certain direction, with a certain field of view
+scanD :: Angle -> Angle -> Behavior ([Agent], [Obstacle])
+lookThere :: (IsObject a) => Angle -> Angle -> Agent -> a -> Bool
+
 -- | A class of objects in the simulated plane.
 class IsObject obj
 

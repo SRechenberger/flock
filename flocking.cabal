@@ -1,5 +1,5 @@
 name:                flocking
-version:             0.1.0.0
+version:             0.1.0.1
 -- synopsis:
 -- description:
 homepage:            https://github.com/SRechenberger/flock#readme
@@ -29,6 +29,20 @@ library
     MonadRandom,
     mtl
   ghc-options: -Wall
+
+executable msc
+  hs-source-dirs:      examples/msc
+  main-is:             Main.hs
+  default-language:    Haskell2010
+  build-depends:
+    base >= 4.9 && < 5,
+    lens,
+    gloss,
+    random,
+    flocking,
+    MonadRandom,
+    mtl
+  ghc-options: -O2
 
 executable adhoc_test
   hs-source-dirs:      examples/adhoc_test
