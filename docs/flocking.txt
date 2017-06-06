@@ -3,7 +3,7 @@
 
 
 @package flocking
-@version 0.1.0.0
+@version 0.1.0.1
 
 module Flock
 type Behavior a = ReaderT Plane (StateT Agent (Rand StdGen)) a
@@ -139,5 +139,5 @@ module Simulation
 
 -- | Runs the simulation in a window, given the window size, a plane, to
 --   simulate and a behavior function.
-runSim :: Int -> Int -> Plane -> Behavior () -> IO ()
+runSim :: Int -> Int -> Integer -> Plane -> Behavior () -> IO ()
 instance GHC.Show.Show Simulation.SimState
