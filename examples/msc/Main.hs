@@ -57,11 +57,12 @@ separation :: Behavior Bool
 separation = do
   (as, _) <- scanD 0 (pi*3/4)
   self <- get
-  let cas =
-    find
-      (\a ->
-        distance self a <= rad * 1.5)
-      as
+  let
+    cas =
+      find
+        (\a ->
+          distance self a <= rad * 1.5)
+        as
   case cas of
     Nothing -> do
       return False
