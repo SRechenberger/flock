@@ -17,6 +17,7 @@ import Control.Lens ((&), (.=))
 
 import Data.List (find, maximumBy)
 import Data.Function (on)
+import Data.Maybe (isJust)
 
 main :: IO ()
 main = runSim 1000 1000 0 area behavior
@@ -40,12 +41,13 @@ minimal = sensorRange
 
 collisionAvoidance :: Behavior Bool
 collisionAvoidance = do
-  (_, os) <- scan
+  (_, os) <- scanD 0 (pi/4)
   self <- get
-  let cos = os
-          & filter (\o -> angle self o <= pi/4)
-          & filter (\o -> distance self o <= rad * 1.5)
-          & (not . null)
+  let
+    cos = os
+      & find (\o ->
+        distance self o <= rad * 1.5)
+      & isJust
   when cos $ do
     lr <- uniform [-pi/2,pi/2]
     turn lr
