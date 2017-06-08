@@ -19,8 +19,22 @@ import Data.List (find, maximumBy)
 import Data.Function (on)
 import Data.Maybe (isJust)
 
+import System.Environment (getArgs)
+
 main :: IO ()
-main = runSim 1000 1000 0 area behavior
+main = do
+  [rad, srange, desired, minimal] <- map read <$> getArgs
+  let
+    area = Plane
+      { _planeAgents =
+        [ mkAgent (i,j) rad (0,0) 1 srange
+        | i <- [-100, -80..100]
+        , j <- [-100, -80..100]
+        , j^2 + i^2 <= 50 ^2
+        ]
+      , _planeObstacles = []
+      }
+  runSim 1000 1000 0 area (behavior minimal desired)
 
 area :: Plane
 area = Plane
@@ -36,32 +50,32 @@ area = Plane
 rad, sensorRange, desired, minimal :: Float
 rad = 5
 sensorRange = rad * 10
-desired = rad * 1.1
-minimal = sensorRange
+desired = sensorRange * 0.9
+minimal = sensorRange * 0.2
 
-collisionAvoidance :: Behavior Bool
-collisionAvoidance = do
+collisionAvoidance :: Distance -> Behavior Bool
+collisionAvoidance minimum = do
   (_, os) <- scanD 0 (pi/4)
   self <- get
   let
     cos = os
       & find (\o ->
-        distance self o <= rad * 1.5)
+        distance self o <= minimum)
       & isJust
   when cos $ do
     lr <- uniform [-pi/2,pi/2]
     turn lr
   return cos
 
-separation :: Behavior Bool
-separation = do
+separation :: Distance -> Behavior Bool
+separation minimum = do
   (as, _) <- scanD 0 (pi*3/4)
   self <- get
   let
     cas =
       find
         (\a ->
-          distance self a <= rad * 1.5)
+          distance self a <= minimum)
         as
   case cas of
     Nothing -> do
@@ -73,11 +87,17 @@ separation = do
         turnLeft
       return True
 
-cohesion :: Behavior Bool
-cohesion = do
-  ls <- length . fst <$> scanD (-pi/2) (pi/4)
-  rs <- length . fst <$> scanD (pi/2) (pi/4)
-  bs <- length . fst <$> scanD pi (pi/4)
+cohesion :: Distance -> Behavior Bool
+cohesion desired = do
+  self <- get
+
+  let
+    p a = distance self a > desired
+    f = length . filter p . fst
+
+  ls <- f <$> scanD (-pi/2) (pi/4)
+  rs <- f <$> scanD (pi/2) (pi/4)
+  bs <- f <$> scanD pi (pi/4)
 
   if ls+rs+bs <= 0
   then do
@@ -104,8 +124,8 @@ turnRandomly = do
   action <- uniform [turnLeft, turnRight]
   action
 
-behavior :: Behavior ()
-behavior = do
+behavior :: Distance -> Distance -> Behavior ()
+behavior minimum desired = do
   (as, os) <- scan
   self     <- get
 
@@ -114,10 +134,10 @@ behavior = do
     then agentFlocking .= True
     else agentFlocking .= False
 
-  ca <- collisionAvoidance
+  ca <- collisionAvoidance minimum
   when (not ca) $ do
-    s <- separation
+    s <- separation minimum
     when (not s) $ do
-      c <- cohesion
+      c <- cohesion desired
       when (not c)
         move
