@@ -37,7 +37,7 @@ main = do
         ]
       , _planeObstacles = [ Obstacle (rotateV a (200,0)) 10 | a <- [0,pi/32..2*pi]]
       }
-  runSim 500 500 (120*5) area (behavior minimal desired)
+  runSim 500 500 (120*60) area (behavior minimal desired)
 
 area :: Plane
 area = Plane
