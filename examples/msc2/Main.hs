@@ -35,17 +35,21 @@ main :: IO ()
 main = do
   let
     rad = 5
-    srange = 30
-    desired = 15
-    minimal = 2
+    srange = 40
+    desired = 39
+    minimal = 10
     area = Plane
       { _planeAgents =
         [ mkAgent (rotateV a (30,0)) rad (0,0) 1 srange
         | a <- [0,pi/8..2*pi]
         ]
-      , _planeObstacles = [ Obstacle (rotateV a (300,0)) 10 | a <- [0,pi/64..2*pi]]
+      , _planeObstacles =
+        [ Obstacle (rotateV a (r,0)) 10
+        | a <- [0,pi/64..2*pi]
+        , r <- [300]
+        ]
       }
-  runSim 500 500 (120*60) area (behavior minimal desired)
+  runSim 700 700 (120*60) area (behavior minimal desired)
 
 area :: Plane
 area = Plane
@@ -161,5 +165,4 @@ behavior minimum desired = do
     when (not s) $ do
       c <- cohesion desired
       when (not c)
-        (return ())
-        --homing
+        homing
