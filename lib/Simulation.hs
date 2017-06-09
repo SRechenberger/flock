@@ -38,7 +38,7 @@ bgColor :: Color
 bgColor = white
 
 fps :: Int
-fps = 30
+fps = 120
 
 -- | Simulation control
 inputHandler :: Event -> Transition
@@ -105,6 +105,6 @@ runSimR w h s p f = do
 
 renderSim :: SimState -> Picture
 renderSim ss = pictures
-  [ render (_plane ss) (_plane ss)
-  , line (_trail ss)
+  [ line (_trail ss)
+  , render (_plane ss) (_plane ss)
   ]

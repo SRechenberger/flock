@@ -21,20 +21,23 @@ import Data.Maybe (isJust)
 
 import System.Environment (getArgs)
 
+import Graphics.Gloss.Data.Vector (rotateV)
+
 main :: IO ()
 main = do
-  [rad, srange, desired, minimal] <- map read <$> getArgs
   let
+    rad = 5
+    srange = 30
+    desired = 10
+    minimal = 2
     area = Plane
       { _planeAgents =
-        [ mkAgent (i,j) rad (0,0) 1 srange
-        | i <- [-100, -80..100]
-        , j <- [-100, -80..100]
-        , j^2 + i^2 <= 50 ^2
+        [ mkAgent (rotateV a (30,0)) rad (0,0) 1 srange
+        | a <- [0,pi/8..2*pi]
         ]
-      , _planeObstacles = []
+      , _planeObstacles = [ Obstacle (rotateV a (200,0)) 10 | a <- [0,pi/32..2*pi]]
       }
-  runSim 1000 1000 0 area (behavior minimal desired)
+  runSim 500 500 (120*5) area (behavior minimal desired)
 
 area :: Plane
 area = Plane
