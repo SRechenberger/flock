@@ -27,8 +27,8 @@ main :: IO ()
 main = do
   let
     rad = 5
-    srange = 30
-    desired = 10
+    srange = 15
+    desired = 7
     minimal = 2
     area = Plane
       { _planeAgents =
