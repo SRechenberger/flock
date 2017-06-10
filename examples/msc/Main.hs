@@ -31,13 +31,28 @@ fib n = fib' 0 1 n
   fib' r1 r2 0 = r2
   fib' r1 r2 n = fib' (r1+r2) r1 (n-1)
 
+getLine' :: IO String
+getLine' = do
+  l <- getLine
+  if head l == '#'
+    then getLine'
+    else return l
+
 main :: IO ()
 main = do
+  putStr "Agent radius: "
+  rad <- read <$> getLine'
+  putStr "Sensor range: "
+  srange <- read <$> getLine'
+  putStr "Desired distance: "
+  desired <- read <$> getLine'
+  putStr "Minimal distance: "
+  minimal <- read <$> getLine'
   let
-    rad = 5
-    srange = 30
-    desired = 15
-    minimal = 2
+    -- rad = 5
+    -- srange = 30
+    -- desired = 15
+    -- minimal = 2
     area = Plane
       { _planeAgents =
         [ mkAgent (rotateV a (30,0)) rad (0,0) 1 srange
@@ -60,9 +75,9 @@ area = Plane
 
 rad, sensorRange, desired, minimal :: Float
 rad = 5
-sensorRange = rad * 10
-desired = sensorRange * 0.9
-minimal = sensorRange * 0.2
+sensorRange = 30
+desired = 10
+minimal = 2
 
 collisionAvoidance :: Distance -> Behavior Bool
 collisionAvoidance minimum = do
