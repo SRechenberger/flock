@@ -63,7 +63,7 @@ main = do
         [ mkAgent (rotateV a (30,0)) rad (0,0) 1 srange
         | a <- [0,pi/8..2*pi]
         ]
-      , _planeObstacles = [ Obstacle (rotateV a (300,0)) 10 | a <- [0,pi/64..2*pi]]
+      , _planeObstacles = [ Obstacle (rotateV a (200,0)) 10 | a <- [0,pi/32..2*pi]]
       }
   runSim 500 500 (120*60) area (behavior minimal desired)
 
