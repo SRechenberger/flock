@@ -20,6 +20,7 @@ import Data.Function (on)
 import Data.Maybe (isJust)
 
 import System.Environment (getArgs)
+import System.IO (hFlush, stdout)
 
 import Graphics.Gloss.Data.Vector (rotateV, mulSV, normalizeV, angleVV)
 
@@ -31,25 +32,40 @@ fib n = fib' 0 1 n
   fib' r1 r2 0 = r2
   fib' r1 r2 n = fib' (r1+r2) r1 (n-1)
 
+getLine' :: IO String
+getLine' = do
+  l <- getLine
+  if head l == '#'
+    then getLine'
+    else return l
+
 main :: IO ()
 main = do
+  putStr "Agent radius: "
+  hFlush stdout
+  rad <- read <$> getLine'
+  putStr "Sensor range: "
+  hFlush stdout
+  srange <- read <$> getLine'
+  putStr "Desired distance: "
+  hFlush stdout
+  desired <- read <$> getLine'
+  putStr "Minimal distance: "
+  hFlush stdout
+  minimal <- read <$> getLine'
   let
-    rad = 5
-    srange = 40
-    desired = 39
-    minimal = 10
+    -- rad = 5
+    -- srange = 30
+    -- desired = 15
+    -- minimal = 2
     area = Plane
       { _planeAgents =
         [ mkAgent (rotateV a (30,0)) rad (0,0) 1 srange
         | a <- [0,pi/8..2*pi]
         ]
-      , _planeObstacles =
-        [ Obstacle (rotateV a (r,0)) 10
-        | a <- [0,pi/64..2*pi]
-        , r <- [300]
-        ]
+      , _planeObstacles = [ Obstacle (rotateV a (300,0)) 10 | a <- [0,pi/64..2*pi]]
       }
-  runSim 700 700 (120*60) area (behavior minimal desired)
+  runSim 500 500 (120*60) area (behavior minimal desired)
 
 area :: Plane
 area = Plane

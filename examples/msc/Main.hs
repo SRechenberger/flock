@@ -20,6 +20,7 @@ import Data.Function (on)
 import Data.Maybe (isJust)
 
 import System.Environment (getArgs)
+import System.IO (hFlush, stdout)
 
 import Graphics.Gloss.Data.Vector (rotateV, mulSV, normalizeV, angleVV)
 
@@ -41,12 +42,16 @@ getLine' = do
 main :: IO ()
 main = do
   putStr "Agent radius: "
+  hFlush stdout
   rad <- read <$> getLine'
   putStr "Sensor range: "
+  hFlush stdout
   srange <- read <$> getLine'
   putStr "Desired distance: "
+  hFlush stdout
   desired <- read <$> getLine'
   putStr "Minimal distance: "
+  hFlush stdout
   minimal <- read <$> getLine'
   let
     -- rad = 5
