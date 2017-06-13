@@ -15,7 +15,7 @@ or you can clone this directory and either reimplement the `behavior` function i
 
 and run with, e.g.
 
-    stack exec flock
+    stack exec msc
 
 ## Controlling a simulation
 With a simulation running, you may *add* new *agents* by clicking **right**, where you want to have one and an *obstacle* by clicking **left**.
